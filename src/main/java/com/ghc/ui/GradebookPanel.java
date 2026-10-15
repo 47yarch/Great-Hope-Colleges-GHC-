@@ -147,160 +147,213 @@ final class GradebookPanel extends JPanel {
         }
     }
 
-    private void editGrade() {
-        int viewRow = table.getSelectedRow();
+    
+private void editGrade() {
+    int viewRow = table.getSelectedRow();
 
-        if (viewRow < 0) {
-            message("Select an enrolled student first.");
-            return;
-        }
+    if (viewRow < 0) {
+        message("Select an enrolled student first.");
+        return;
+    }
 
-        int row = table.convertRowIndexToModel(viewRow);
-        int enrollmentId = ((Number) model.getValueAt(row, 0)).intValue();
-        int sectionId;
+    int row = table.convertRowIndexToModel(viewRow);
+    int enrollmentId = ((Number) model.getValueAt(row, 0)).intValue();
+    int sectionId;
 
-        try (Connection c = DatabaseConnection.getConnection();
-             PreparedStatement p = c.prepareStatement(
-                 "SELECT SECTION_ID FROM ENROLLMENTS WHERE ID = ?")) {
+    try (Connection c = DatabaseConnection.getConnection();
+         PreparedStatement p = c.prepareStatement(
+             "SELECT SECTION_ID FROM ENROLLMENTS WHERE ID = ?")) {
 
-            p.setInt(1, enrollmentId);
+        p.setInt(1, enrollmentId);
 
-            try (ResultSet r = p.executeQuery()) {
-                if (!r.next() || r.getObject(1) == null) {
-                    message("Assign this enrollment to a class section first.");
-                    return;
-                }
-                sectionId = r.getInt(1);
-            }
-
-            if (user.isInstructor()) {
-                try (PreparedStatement p2 = c.prepareStatement("""
-                    SELECT COUNT(*)
-                    FROM CLASS_SECTIONS
-                    WHERE ID = ? AND INSTRUCTOR_USER_ID = ? AND ACTIVE = 1
-                    """)) {
-                    p2.setInt(1, sectionId);
-                    p2.setInt(2, user.getUserId());
-
-                    try (ResultSet r = p2.executeQuery()) {
-                        r.next();
-                        if (r.getInt(1) == 0) {
-                            throw new SecurityException(
-                                "You may only grade your assigned active classes.");
-                        }
-                    }
-                }
-            } else {
-                AccessControl.requireAdmin();
-            }
-
-        } catch (Exception ex) {
-            showError("Grade access check failed.", ex);
-            return;
-        }
-
-        String[] keys = {
-            "LEC_WW", "LEC_UNIT_TEST", "LEC_TERM_TEST",
-            "LAB_WW", "LAB_UNIT_TEST", "LAB_TERM_TEST",
-            "LAB_PERFORMANCE"
-        };
-
-        String[] labels = {
-            "Lecture — Written works (30%)",
-            "Lecture — Unit test (40%)",
-            "Lecture — Term test (30%)",
-            "Laboratory — Written works (20%)",
-            "Laboratory — Unit test (25%)",
-            "Laboratory — Term test (20%)",
-            "Laboratory — Performance tasks (35%)"
-        };
-
-        try {
-            Map<String, Double> saved = readScores(enrollmentId);
-            JTextField[] fields = new JTextField[keys.length];
-
-            JPanel form = new JPanel(new GridLayout(0, 2, 10, 8));
-            form.setBackground(Theme.BEIGE);
-
-            for (int i = 0; i < keys.length; i++) {
-                JLabel label = new JLabel(labels[i]);
-                label.setFont(new Font("SansSerif", Font.PLAIN, 14));
-                fields[i] = new JTextField(
-                    saved.containsKey(keys[i])
-                        ? String.valueOf(saved.get(keys[i])) : ""
-                );
-                form.add(label);
-                form.add(fields[i]);
-            }
-
-            JCheckBox hasLab =
-                new JCheckBox("This course has a laboratory component", true);
-            hasLab.setBackground(Theme.BEIGE);
-            form.add(new JLabel("Final grade formula"));
-            form.add(hasLab);
-
-            int result = JOptionPane.showConfirmDialog(
-                this, new JScrollPane(form),
-                "Grade Components — " + model.getValueAt(row, 2),
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-            );
-
-            if (result != JOptionPane.OK_OPTION) {
+        try (ResultSet r = p.executeQuery()) {
+            if (!r.next() || r.getObject(1) == null) {
+                message("Assign this enrollment to a class section first.");
                 return;
             }
+            sectionId = r.getInt(1);
+        }
 
-            double[] scores = new double[7];
+        if (user.isInstructor()) {
+            try (PreparedStatement p2 = c.prepareStatement("""
+                SELECT COUNT(*)
+                FROM CLASS_SECTIONS
+                WHERE ID = ? AND INSTRUCTOR_USER_ID = ? AND ACTIVE = 1
+                """)) {
+                p2.setInt(1, sectionId);
+                p2.setInt(2, user.getUserId());
 
-            for (int i = 0; i < fields.length; i++) {
-                String input = fields[i].getText().trim();
-
-                if (input.isEmpty()) {
-                    if (i < 3 || hasLab.isSelected()) {
-                        throw new IllegalArgumentException(
-                            "Enter every required component score (0–100).");
+                try (ResultSet r = p2.executeQuery()) {
+                    r.next();
+                    if (r.getInt(1) == 0) {
+                        throw new SecurityException(
+                            "You may only grade your assigned active classes.");
                     }
-                    scores[i] = 0;
-                } else {
-                    scores[i] = Double.parseDouble(input);
-                }
-
-                if (!Double.isFinite(scores[i])
-                        || scores[i] < 0 || scores[i] > 100) {
-                    throw new IllegalArgumentException(
-                        "Every component score must be between 0 and 100.");
                 }
             }
+        } else {
+            AccessControl.requireAdmin();
+        }
 
-            double lecture = GradingCalculator.calculateLecture(
-                scores[0], scores[1], scores[2]);
+    } catch (Exception ex) {
+        showError("Grade access check failed.", ex);
+        return;
+    }
 
-            double laboratory = GradingCalculator.calculateLaboratory(
-                scores[3], scores[4], scores[5], scores[6]);
+    String[] keys = {
+        "LEC_WW", "LEC_UNIT_TEST", "LEC_TERM_TEST",
+        "LAB_WW", "LAB_UNIT_TEST", "LAB_TERM_TEST",
+        "LAB_PERFORMANCE"
+    };
 
-            double raw = GradingCalculator.finalRawGrade(
-                lecture, laboratory, hasLab.isSelected());
+    String[] labels = {
+        "Lecture — Written works (30%)",
+        "Lecture — Unit test (40%)",
+        "Lecture — Term test (30%)",
+        "Laboratory — Written works (20%)",
+        "Laboratory — Unit test (25%)",
+        "Laboratory — Term test (20%)",
+        "Laboratory — Performance tasks (35%)"
+    };
 
-            Map<String, Double> submitted = new LinkedHashMap<>();
-            for (int i = 0; i < keys.length; i++) {
+    try {
+        Map<String, Double> saved = readScores(enrollmentId);
+        JTextField[] fields = new JTextField[keys.length];
+
+        JPanel form = new JPanel(new GridLayout(0, 2, 10, 8));
+        form.setBackground(Theme.BEIGE);
+
+        JCheckBox hasLab =
+            new JCheckBox("This course has a laboratory component", true);
+        hasLab.setBackground(Theme.BEIGE);
+
+        for (int i = 0; i < keys.length; i++) {
+            JLabel label = new JLabel(labels[i]);
+            label.setFont(new Font("SansSerif", Font.PLAIN, 14));
+
+            fields[i] = new JTextField(
+                saved.containsKey(keys[i])
+                    ? String.valueOf(saved.get(keys[i])) : ""
+            );
+
+            form.add(label);
+            form.add(fields[i]);
+        }
+
+        form.add(new JLabel("Final grade formula"));
+        form.add(hasLab);
+
+        // Disable and clear laboratory fields when the checkbox is unticked.
+        Runnable updateLaboratoryFields = () -> {
+            boolean enabled = hasLab.isSelected();
+
+            for (int i = 3; i < fields.length; i++) {
+                fields[i].setEnabled(enabled);
+                fields[i].setEditable(enabled);
+
+                if (!enabled) {
+                    fields[i].setText("");
+                }
+            }
+        };
+
+        hasLab.addActionListener(e -> updateLaboratoryFields.run());
+        updateLaboratoryFields.run();
+
+        int result = JOptionPane.showConfirmDialog(
+            this,
+            new JScrollPane(form),
+            "Grade Components — " + model.getValueAt(row, 2),
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        double[] scores = new double[7];
+
+        // Lecture components are always required.
+        for (int i = 0; i < 3; i++) {
+            scores[i] = parseScore(fields[i].getText(), labels[i]);
+        }
+
+        // Laboratory components are required only if the course has lab.
+        for (int i = 3; i < 7; i++) {
+            if (hasLab.isSelected()) {
+                scores[i] = parseScore(fields[i].getText(), labels[i]);
+            } else {
+                scores[i] = 0.0;
+            }
+        }
+
+        double lecture = GradingCalculator.calculateLecture(
+            scores[0], scores[1], scores[2]);
+
+        double laboratory = hasLab.isSelected()
+            ? GradingCalculator.calculateLaboratory(
+                scores[3], scores[4], scores[5], scores[6])
+            : 0.0;
+
+        double raw = GradingCalculator.finalRawGrade(
+            lecture, laboratory, hasLab.isSelected());
+
+        Map<String, Double> submitted = new LinkedHashMap<>();
+
+        for (int i = 0; i < 3; i++) {
+            submitted.put(keys[i], scores[i]);
+        }
+
+        if (hasLab.isSelected()) {
+            for (int i = 3; i < 7; i++) {
                 submitted.put(keys[i], scores[i]);
             }
-
-            new GradeDAO().saveCalculatedGrade(
-                enrollmentId, submitted, hasLab.isSelected());
-
-            message("Grade saved successfully.\n"
-                + "Lecture grade: " + lecture + "\n"
-                + "Laboratory grade: " + laboratory + "\n"
-                + "Final raw grade: " + raw + "\n"
-                + "Equivalent: " + GradingCalculator.equivalentGrade(raw));
-
-            load();
-
-        } catch (Exception ex) {
-            showError("Unable to save the grade.", ex);
         }
+
+        new GradeDAO().saveCalculatedGrade(
+            enrollmentId, submitted, hasLab.isSelected());
+
+        message("Grade saved successfully.\n"
+            + "Lecture grade: " + lecture + "\n"
+            + "Laboratory grade: "
+            + (hasLab.isSelected()
+                ? String.valueOf(laboratory) : "Not applicable") + "\n"
+            + "Final raw grade: " + raw + "\n"
+            + "Equivalent: " + GradingCalculator.equivalentGrade(raw));
+
+        load();
+
+    } catch (Exception ex) {
+        showError("Unable to save the grade.", ex);
     }
+}
+
+private double parseScore(String input, String label) {
+    String value = input.trim();
+
+    if (value.isEmpty()) {
+        throw new IllegalArgumentException(
+            "Enter a score for " + label + " (0–100).");
+    }
+
+    double score;
+
+    try {
+        score = Double.parseDouble(value);
+    } catch (NumberFormatException ex) {
+        throw new IllegalArgumentException(
+            "Enter a valid number for " + label + ".");
+    }
+
+    if (!Double.isFinite(score) || score < 0 || score > 100) {
+        throw new IllegalArgumentException(
+            label + " must be between 0 and 100.");
+    }
+
+    return score;
+}
+
 
     private Map<String, Double> readScores(int enrollmentId)
             throws SQLException {
