@@ -1,0 +1,6 @@
+target/
+ghc_database/
+*.log
+.idea/
+.vscode/
+*.iml
