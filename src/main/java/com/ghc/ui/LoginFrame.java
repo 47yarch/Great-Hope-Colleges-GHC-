@@ -18,7 +18,7 @@ public class LoginFrame extends JFrame {
     public LoginFrame() {
         Theme.apply();
 
-        setTitle("GHC | Secure Login");
+        setTitle("GHC | Login");
         setSize(480, 540);
         setMinimumSize(new Dimension(460, 520));
         setLocationRelativeTo(null);
@@ -142,7 +142,7 @@ public class LoginFrame extends JFrame {
 
         // Login hint.
         JLabel hint = new JLabel(
-                "Default administrator: admin / admin123",
+                "Created by: Agustin & Sabulao | BSIT - 2B",
                 SwingConstants.CENTER);
         hint.setForeground(Theme.MUTED);
         hint.setFont(new Font("SansSerif", Font.PLAIN, 11));

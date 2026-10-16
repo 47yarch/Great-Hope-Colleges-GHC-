@@ -48,7 +48,7 @@ public class DashboardFrame extends JFrame {
         add(content, BorderLayout.CENTER);
 
         JLabel footer = new JLabel(
-                "  GHC  •  Academic Records Office  •  Green, gold and beige edition");
+                "  GHC  •  Academic Records Office  •  Agustin & Sabulao");
         footer.setOpaque(true);
         footer.setBackground(Theme.BEIGE);
         footer.setForeground(Color.BLACK);
@@ -177,8 +177,10 @@ public class DashboardFrame extends JFrame {
             b.setHorizontalAlignment(SwingConstants.LEFT);
             b.setAlignmentX(Component.LEFT_ALIGNMENT);
             b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 37));
-            b.setBackground(Theme.DARK_GREEN);
-            b.setForeground(Color.WHITE);
+            b.setBackground(Color.WHITE);
+            b.setForeground(Color.BLACK);
+            b.setOpaque(true);
+            b.setContentAreaFilled(true);
             b.setFocusPainted(false);
             b.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 8));
             b.setFont(new Font("SansSerif", Font.PLAIN, 12));
@@ -192,13 +194,27 @@ public class DashboardFrame extends JFrame {
     private void showPage(String page) {
         activePage = page;
 
-        for (Map.Entry<String, JButton> e : navButtons.entrySet()) {
-            boolean selected = e.getKey().equals(page);
-            e.getValue().setBackground(
-                    selected ? Theme.YELLOW : Theme.DARK_GREEN);
-            e.getValue().setForeground(
-                    selected ? Color.BLACK : Color.WHITE);
-        }
+        
+
+for (Map.Entry<String, JButton> e : navButtons.entrySet()) {
+    boolean selected = e.getKey().equals(page);
+    JButton button = e.getValue();
+
+    button.setOpaque(true);
+    button.setContentAreaFilled(true);
+    button.setBorderPainted(false);
+    button.setFocusPainted(false);
+
+    if (selected) {
+        button.setBackground(new Color(45, 105, 78)); // Green
+        button.setForeground(Color.WHITE);
+    } else {
+        button.setBackground(Color.WHITE);            // White
+        button.setForeground(Color.BLACK);            // Black
+    }
+}
+
+
 
         content.removeAll();
 
