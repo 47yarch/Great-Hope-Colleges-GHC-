@@ -45,6 +45,127 @@ The project is developed using Java Swing/AWT for the graphical user interface, 
 
 *The availability of each feature depends on the functionality implemented in the current version of the application.*
 
+## 🏗️ System Architecture
+
+The Great Hope Colleges (GHC) Student Enrollment and Grading Management System is a Java desktop application. Its logical architecture connects the user interface to application workflows and database operations through JDBC, using Apache Derby for data storage.
+
+### Architecture Diagram
+
+```mermaid
+flowchart TD
+    U["User"] --> UI["Presentation Layer<br/>Java Swing / AWT"]
+    UI --> APP["Application Logic<br/>Validation and Workflows"]
+    APP --> DATA["Database Access Layer<br/>Queries and Persistence"]
+    DATA --> JDBC["JDBC Connection"]
+    JDBC --> DB[("Apache Derby Database")]
+
+    CFG["Database Configuration"] -.-> JDBC
+
+    style U fill:#f7f3e8,stroke:#245b43,color:#24332b
+    style UI fill:#245b43,stroke:#173e2d,color:#ffffff
+    style APP fill:#36775a,stroke:#245b43,color:#ffffff
+    style DATA fill:#f1d77f,stroke:#b99a37,color:#24332b
+    style JDBC fill:#f7f3e8,stroke:#245b43,color:#24332b
+    style DB fill:#245b43,stroke:#173e2d,color:#ffffff
+```
+
+### Architecture Components
+
+| Component | Responsibility |
+|---|---|
+| Presentation Layer | Displays the desktop interface and collects user input through Java Swing/AWT. |
+| Application Logic | Coordinates application workflows and validation. |
+| Database Access Layer | Handles database initialization, queries, and persistence operations. |
+| JDBC | Provides Java connectivity to the database. |
+| Apache Derby | Stores application records in relational tables. |
+| Database Configuration | Defines the connection details used by the application. |
+
+*This diagram represents the logical architecture. The precise division of responsibilities should be checked against the current Java source code.*
+
+### Data Flow
+
+1. A user interacts with the GHC desktop interface.
+2. The application processes the requested operation and validates input.
+3. Database access code executes the necessary database operations.
+4. JDBC communicates with Apache Derby.
+5. The application receives the results and updates the interface.
+
+## 🗄️ Database Design
+
+GHC uses Apache Derby as its relational database. The database initializer defines or updates the tables required by the application.
+
+### Database Table Overview
+
+```mermaid
+flowchart TB
+    subgraph Accounts["Accounts and Configuration"]
+        USERS["USERS"]
+        SETTINGS["APP_SETTINGS"]
+    end
+
+    subgraph Academic["Academic Records"]
+        STUDENTS["STUDENTS"]
+        COURSES["COURSES"]
+        DEPARTMENTS["DEPARTMENTS"]
+        PROGRAMS["PROGRAMS"]
+    end
+
+    subgraph Enrollment["Class and Enrollment"]
+        ENROLLMENTS["ENROLLMENTS"]
+        SECTIONS["CLASS_SECTIONS"]
+        SCHEDULES["SECTION_SCHEDULES"]
+    end
+
+    subgraph Grading["Grading and Audit"]
+        COMPONENTS["GRADE_COMPONENTS"]
+        AUDIT["GRADE_AUDIT"]
+    end
+
+    style Accounts fill:#f7f3e8,stroke:#245b43,color:#24332b
+    style Academic fill:#e8f1e8,stroke:#36775a,color:#24332b
+    style Enrollment fill:#fff8df,stroke:#b99a37,color:#24332b
+    style Grading fill:#e8f1e8,stroke:#245b43,color:#24332b
+```
+
+The diagram groups tables by their apparent purpose. It intentionally does not draw foreign-key relationships because the exact constraints must be confirmed from the project's database schema.
+
+### Table Descriptions
+
+| Table | Purpose |
+|---|---|
+| `USERS` | Application user accounts. |
+| `STUDENTS` | Student information and records. |
+| `COURSES` | Course or subject catalog. |
+| `ENROLLMENTS` | Student enrollment records. |
+| `DEPARTMENTS` | Academic department records. |
+| `PROGRAMS` | Academic program records. |
+| `CLASS_SECTIONS` | Class section or offering records. |
+| `SECTION_SCHEDULES` | Class schedule information. |
+| `GRADE_COMPONENTS` | Grade component records used by the grading workflow. |
+| `GRADE_AUDIT` | Grade audit or change-history records. |
+| `APP_SETTINGS` | Application configuration or settings. |
+
+*Descriptions are based on the table names and project context. Confirm exact columns, data types, primary keys, foreign keys, and constraints in `DatabaseInitializer.java` and the related database code.*
+
+### Interactive Architecture and Database Explorer
+
+Explore the clickable diagrams and table descriptions in the companion webpage:
+
+**[Open the GHC Architecture & Database Explorer](docs/architecture.html)**
+
+The explorer provides a visual way to inspect application components and database tables. It is a static documentation page and does not connect to or modify the live database.
+
+### Database Integrity and Security
+
+- Define primary keys for records that need unique identifiers.
+- Use foreign keys where appropriate to enforce valid relationships between records.
+- Apply suitable constraints to prevent invalid or incomplete data.
+- Keep database connection settings and credentials secure.
+- Do not publish real student information, grades, or account credentials.
+- Back up the database before performing schema migrations or transferring existing records.
+
+These are recommended database practices; verify which constraints and protections are implemented in the current version.
+
 ## 🛠️ Technologies Used
 
 | Technology | Purpose |
