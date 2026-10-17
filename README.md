@@ -1,6 +1,27 @@
 # Great Hope Colleges (GHC)
 
-A Java-based Student Enrollment and Grading Management System for Great Hope Colleges. The application provides a desktop interface for managing student records, courses, enrollment, and academic grading.
+[![Language](https://img.shields.io/badge/Language-Java-orange?logo=openjdk&logoColor=white)](https://www.java.com/)
+[![UI](https://img.shields.io/badge/UI-Java%20Swing%20%2F%20AWT-blue)](https://docs.oracle.com/javase/tutorial/uiswing/)
+[![Platform](https://img.shields.io/badge/Platform-Desktop-lightgrey)](https://www.java.com/)
+[![Build Tool](https://img.shields.io/badge/Build-Apache%20Maven-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)
+[![Database](https://img.shields.io/badge/Database-Apache%20Derby-4479A1)](https://db.apache.org/derby/)
+[![JDK](https://img.shields.io/badge/JDK-17%2B-007396?logo=openjdk&logoColor=white)](https://openjdk.org/)
+
+> A Java desktop application for student enrollment, grading, and academic record management. It uses Java Swing/AWT for the graphical interface, JDBC for database access, and an embedded Apache Derby database.
+
+## Project at a Glance
+
+| Item | Details |
+|---|---|
+| **Project** | Great Hope Colleges (GHC) — Student Enrollment, Grading and Record Management System |
+| **Application Type** | Desktop Application |
+| **Programming Language** | Java |
+| **User Interface** | Java Swing / AWT |
+| **Database Connectivity** | JDBC |
+| **Database** | Apache Derby (Embedded) |
+| **Build Tool** | Apache Maven |
+| **Required JDK** | JDK 17 or newer |
+| **Required Maven** | Apache Maven 3.8 or newer |
 
 ## 🖥️ Application Screenshots
 
