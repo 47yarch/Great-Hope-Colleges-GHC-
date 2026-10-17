@@ -172,7 +172,7 @@ The diagram groups tables by their apparent purpose. It intentionally does not d
 
 Explore the clickable diagrams and table descriptions in the companion webpage:
 
-**[Open the GHC Architecture & Database Explorer](docs/architecture.html)**
+**[Open the GHC Architecture & Database Explorer](docs/ghc_architecture_explorer.html)**
 
 The explorer provides a visual way to inspect application components and database tables. It is a static documentation page and does not connect to or modify the live database.
 
