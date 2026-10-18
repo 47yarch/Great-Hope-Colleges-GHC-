@@ -499,6 +499,12 @@ public class RecordPanel extends JPanel {
 
     private void studentForm(Student old) {
         JTextField[] f = new JTextField[10];
+        JPasswordField passwordField = new JPasswordField(20);
+        JLabel passwordLabel = new JLabel(
+    old == null
+        ? "Initial Password *"
+        : "New Password (leave blank to keep current)"
+);
 
         String[] labels = {
             "Student Number *", "First Name *", "Last Name *",
@@ -530,6 +536,14 @@ public class RecordPanel extends JPanel {
         gender.setForeground(Color.BLACK);
         p.add(gender);
 
+       
+    passwordLabel.setForeground(Color.BLACK);
+    p.add(passwordLabel);
+
+    passwordField.setForeground(Color.BLACK);
+    p.add(passwordField);
+
+
         f[7].setText("1st Year");
         f[9].setText("Active");
 
@@ -549,18 +563,39 @@ public class RecordPanel extends JPanel {
             );
         }
 
-        if (JOptionPane.showConfirmDialog(
-                this, p, (old == null ? "Add" : "Edit") + " Student",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-            ) != JOptionPane.OK_OPTION) {
-            return;
-        }
+       JScrollPane formScroll = new JScrollPane(p);
+formScroll.setPreferredSize(new Dimension(480, 500));
+formScroll.setBorder(BorderFactory.createEmptyBorder());
+formScroll.getVerticalScrollBar().setUnitIncrement(16);
+
+int dialogResult = JOptionPane.showConfirmDialog(
+    this,
+    formScroll,
+    (old == null ? "Add" : "Edit") + " Student ",
+    JOptionPane.OK_CANCEL_OPTION,
+    JOptionPane.PLAIN_MESSAGE
+);
+
+if (dialogResult != JOptionPane.OK_OPTION) {
+    return;
+}
 
         if (blank(f[0]) || blank(f[1]) || blank(f[2])) {
             msg("Student number, first name and last name are required.");
             return;
         }
+
+        int passwordLength = passwordField.getPassword().length;
+
+if ((old == null || passwordLength > 0)
+        && passwordLength < 8) {
+    msg(
+        old == null
+            ? "Initial password must contain at least 8 characters."
+            : "New password must contain at least 8 characters."
+    );
+    return;
+}
 
         if (!f[3].getText().trim().isEmpty()
                 && !f[3].getText().trim().matches("\\d{4}-\\d{2}-\\d{2}")) {
@@ -575,22 +610,35 @@ public class RecordPanel extends JPanel {
         }
 
         try {
-            studentDAO.save(new Student(
-                old == null ? 0 : old.id,
-                v[0], v[1], v[2],
-                (String) gender.getSelectedItem(),
-                v[3], v[4], v[5], v[6], v[7], v[8],
-                v[9].isEmpty() ? "Active" : v[9]
-            ));
+            Student student = new Student(
+    old == null ? 0 : old.id,
+    v[0], v[1], v[2],
+    (String) gender.getSelectedItem(),
+    v[3], v[4], v[5], v[6], v[7], v[8],
+    v[9].isEmpty() ? "Active" : v[9]
+);
+
+String password = new String(passwordField.getPassword());
+
+if (old == null || !password.isBlank()) {
+    studentDAO.save(student, password);
+} else {
+    studentDAO.save(student);
+}
 
             load();
 
         } catch (Exception e) {
-            error(
-                "Could not save student. Check that the student number is unique.",
-                e
-            );
-        }
+    e.printStackTrace();
+
+    error(
+        "Could not save student: "
+            + e.getClass().getSimpleName()
+            + ": "
+            + e.getMessage(),
+        e
+    );
+}
     }
 
     private void courseForm(Course old) {

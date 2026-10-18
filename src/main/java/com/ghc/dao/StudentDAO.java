@@ -9,6 +9,11 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.ghc.database.DatabaseInitializer;
+import java.util.Locale;
+
+import javax.swing.JOptionPane;
+
 public class StudentDAO {
 
     /**
@@ -51,51 +56,197 @@ public class StudentDAO {
         return students;
     }
 
-    /**
-     * Create or update a student.
-     * Only Administrator and Registrar may modify student records.
-     */
-    public void save(Student student) throws SQLException {
-        AccessControl.requireAdminOrRegistrar();
-        validateStudent(student);
+    
+/**
+ * Compatibility method for existing callers.
+ * New students must provide an initial password.
+ */
 
-        String sql;
+public void save(Student student) throws SQLException {
+    save(student, null);
+}
 
-        if (student.id == 0) {
-            sql = """
-                INSERT INTO STUDENTS (
-                    STUDENT_NO, FIRST_NAME, LAST_NAME, GENDER,
-                    BIRTH_DATE, EMAIL, PHONE, ADDRESS,
-                    YEAR_LEVEL, PROGRAM, STATUS
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """;
-        } else {
-            sql = """
-                UPDATE STUDENTS SET
-                    STUDENT_NO = ?, FIRST_NAME = ?, LAST_NAME = ?,
-                    GENDER = ?, BIRTH_DATE = ?, EMAIL = ?, PHONE = ?,
-                    ADDRESS = ?, YEAR_LEVEL = ?, PROGRAM = ?, STATUS = ?
-                WHERE ID = ?
-                """;
-        }
 
-        try (Connection c = DatabaseConnection.getConnection();
-             PreparedStatement p = c.prepareStatement(sql)) {
+/**
+ * Creates or updates a student.
+ * New students also receive a linked login account.
+ */
+public void save(Student student, String password) throws SQLException {
+    AccessControl.requireAdminOrRegistrar();
+    validateStudent(student);
 
-            int index = bindStudent(p, student);
+    boolean isNew = student.id == 0;
 
-            if (student.id != 0) {
-                p.setInt(index, student.id);
-            }
+    if (isNew && (password == null || password.length() < 8)) {
+        throw new IllegalArgumentException(
+                "The student's initial password must contain at least 8 characters.");
+    }
 
-            int affected = p.executeUpdate();
+    try (Connection c = DatabaseConnection.getConnection()) {
+        c.setAutoCommit(false);
 
-            if (student.id != 0 && affected == 0) {
-                throw new SQLException(
-                        "Student not found. No record was updated.");
+        try {
+            int studentId;
+
+            if (isNew) {
+                String sql = """
+                    INSERT INTO STUDENTS (
+                        STUDENT_NO, FIRST_NAME, LAST_NAME, GENDER,
+                        BIRTH_DATE, EMAIL, PHONE, ADDRESS,
+                        YEAR_LEVEL, PROGRAM, STATUS
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """;
+
+                try (PreparedStatement p = c.prepareStatement(
+                        sql, Statement.RETURN_GENERATED_KEYS)) {
+
+                    bindStudent(p, student);
+                    p.executeUpdate();
+
+                    try (ResultSet keys = p.getGeneratedKeys()) {
+                        if (!keys.next()) {
+                            throw new SQLException(
+                                    "Could not retrieve the new student ID.");
+                        }
+                        studentId = keys.getInt(1);
+                    }
+                }
+
+                String accountSql = """
+                    INSERT INTO USERS (
+                        USERNAME, PASSWORD_HASH, FULL_NAME,
+                        ROLE, ACTIVE, STUDENT_ID
+                    ) VALUES (?, ?, ?, 'STUDENT', 1, ?)
+                    """;
+
+                try (PreparedStatement p = c.prepareStatement(accountSql)) {
+                    p.setString(1, student.studentNo.trim());
+                    p.setString(2, DatabaseInitializer.hash(password));
+                    p.setString(3,
+                            student.firstName.trim() + " "
+                            + student.lastName.trim());
+                    p.setInt(4, studentId);
+                    p.executeUpdate();
+                }
+
+                // Keep the generated ID on the model.
+                student.id = studentId;
+
+            } else {
+                String sql = """
+                    UPDATE STUDENTS SET
+                        STUDENT_NO = ?, FIRST_NAME = ?, LAST_NAME = ?,
+                        GENDER = ?, BIRTH_DATE = ?, EMAIL = ?, PHONE = ?,
+                        ADDRESS = ?, YEAR_LEVEL = ?, PROGRAM = ?, STATUS = ?
+                    WHERE ID = ?
+                    """;
+
+                try (PreparedStatement p = c.prepareStatement(sql)) {
+                    int index = bindStudent(p, student);
+                    p.setInt(index, student.id);
+
+                    if (p.executeUpdate() == 0) {
+                        throw new SQLException(
+                                "Student not found. No record was updated.");
+                    }
+                
+                
+
+if (password != null && !password.isBlank()) {
+    if (password.length() < 8) {
+        throw new IllegalArgumentException(
+                "The new password must contain at least 8 characters.");
+    }
+
+    // First, look for an existing account linked by student ID.
+    String findAccountSql = """
+        SELECT ID
+        FROM USERS
+        WHERE STUDENT_ID = ? AND ROLE = 'STUDENT'
+        """;
+
+    Integer userId = null;
+
+    try (PreparedStatement findAccount =
+            c.prepareStatement(findAccountSql)) {
+        findAccount.setInt(1, student.id);
+
+        try (ResultSet result = findAccount.executeQuery()) {
+            if (result.next()) {
+                userId = result.getInt("ID");
             }
         }
     }
+
+    if (userId != null) {
+        // Update the existing linked account.
+        String updateAccountSql = """
+            UPDATE USERS
+            SET PASSWORD_HASH = ?
+            WHERE ID = ?
+            """;
+
+        try (PreparedStatement updateAccount =
+                c.prepareStatement(updateAccountSql)) {
+            updateAccount.setString(
+                    1, DatabaseInitializer.hash(password));
+            updateAccount.setInt(2, userId);
+            updateAccount.executeUpdate();
+        }
+    } else {
+        // No linked account exists, so create one.
+        String createAccountSql = """
+            INSERT INTO USERS (
+                USERNAME, PASSWORD_HASH, FULL_NAME,
+                ROLE, ACTIVE, STUDENT_ID
+            ) VALUES (?, ?, ?, 'STUDENT', 1, ?)
+            """;
+
+        try (PreparedStatement createAccount =
+                c.prepareStatement(createAccountSql)) {
+            createAccount.setString(1, student.studentNo.trim());
+            createAccount.setString(
+                    2, DatabaseInitializer.hash(password));
+            createAccount.setString(
+                    3, student.firstName.trim() + " "
+                    + student.lastName.trim());
+            createAccount.setInt(4, student.id);
+            createAccount.executeUpdate();
+        }
+    }
+}
+
+
+                }
+            }
+
+            c.commit();
+
+        } catch (Exception ex) {
+            try {
+                c.rollback();
+            } catch (SQLException rollbackError) {
+                ex.addSuppressed(rollbackError);
+            }
+
+            if (ex instanceof SQLException sqlException) {
+                throw sqlException;
+            }
+            if (ex instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new SQLException("Could not save student and login account.", ex);
+
+        } finally {
+            try {
+                c.setAutoCommit(true);
+            } catch (SQLException ignored) {
+                // Connection closes after this method.
+            }
+        }
+    }
+}
+
 
     /**
      * Delete a student. Database foreign-key constraints may prevent

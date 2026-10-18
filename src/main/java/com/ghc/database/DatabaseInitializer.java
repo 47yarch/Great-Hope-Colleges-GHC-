@@ -6,13 +6,15 @@ import java.security.MessageDigest;
 import java.sql.*;
 
 public final class DatabaseInitializer {
-    private DatabaseInitializer() {}
+
+    private DatabaseInitializer() {
+    }
 
     public static void initialize() throws Exception {
         try (Connection c = DatabaseConnection.getConnection();
              Statement s = c.createStatement()) {
 
-            // Existing tables: retain all existing rows and identity values.
+            // USERS
             create(s, """
                 CREATE TABLE USERS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -23,6 +25,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // STUDENTS
             create(s, """
                 CREATE TABLE STUDENTS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -40,6 +43,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // COURSES
             create(s, """
                 CREATE TABLE COURSES (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -50,6 +54,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // ENROLLMENTS
             create(s, """
                 CREATE TABLE ENROLLMENTS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -68,11 +73,32 @@ public final class DatabaseInitializer {
                 )
                 """);
 
-            // Safe, repeatable migrations for databases created by older versions.
+            // Migrations for existing databases.
             ensureColumn(c, "USERS", "ACTIVE",
                     "ALTER TABLE USERS ADD COLUMN ACTIVE SMALLINT DEFAULT 1 NOT NULL");
 
-            // Academic setup.
+            ensureColumn(c, "USERS", "STUDENT_ID",
+                    "ALTER TABLE USERS ADD COLUMN STUDENT_ID INT");
+
+            ensureColumn(c, "ENROLLMENTS", "SECTION_ID",
+                    "ALTER TABLE ENROLLMENTS ADD COLUMN SECTION_ID INT");
+
+            ensureColumn(c, "ENROLLMENTS", "GRADE_EQUIVALENT",
+                    "ALTER TABLE ENROLLMENTS ADD COLUMN GRADE_EQUIVALENT VARCHAR(10)");
+
+            ensureColumn(c, "ENROLLMENTS", "STATUS",
+                    "ALTER TABLE ENROLLMENTS ADD COLUMN STATUS VARCHAR(20) DEFAULT 'APPROVED' NOT NULL");
+
+            ensureColumn(c, "ENROLLMENTS", "REQUESTED_AT",
+                    "ALTER TABLE ENROLLMENTS ADD COLUMN REQUESTED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL");
+
+            ensureColumn(c, "ENROLLMENTS", "REVIEWED_BY",
+                    "ALTER TABLE ENROLLMENTS ADD COLUMN REVIEWED_BY INT");
+
+            ensureColumn(c, "ENROLLMENTS", "REVIEWED_AT",
+                    "ALTER TABLE ENROLLMENTS ADD COLUMN REVIEWED_AT TIMESTAMP");
+
+            // DEPARTMENTS
             create(s, """
                 CREATE TABLE DEPARTMENTS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -83,6 +109,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // PROGRAMS
             create(s, """
                 CREATE TABLE PROGRAMS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -96,7 +123,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
-            // A class section is a particular offering of a course in a term.
+            // CLASS SECTIONS
             create(s, """
                 CREATE TABLE CLASS_SECTIONS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -116,6 +143,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // SECTION SCHEDULES
             create(s, """
                 CREATE TABLE SECTION_SCHEDULES (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -129,13 +157,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
-            // Existing enrollments can remain unassigned to a section until updated.
-            ensureColumn(c, "ENROLLMENTS", "SECTION_ID",
-                    "ALTER TABLE ENROLLMENTS ADD COLUMN SECTION_ID INT");
-            ensureColumn(c, "ENROLLMENTS", "GRADE_EQUIVALENT",
-                    "ALTER TABLE ENROLLMENTS ADD COLUMN GRADE_EQUIVALENT VARCHAR(10)");
-
-            // Store individual grade components separately from the existing final grade.
+            // GRADE COMPONENTS
             create(s, """
                 CREATE TABLE GRADE_COMPONENTS (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -155,6 +177,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // GRADE AUDIT
             create(s, """
                 CREATE TABLE GRADE_AUDIT (
                     ID INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -172,6 +195,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // APP SETTINGS
             create(s, """
                 CREATE TABLE APP_SETTINGS (
                     SETTING_KEY VARCHAR(100) PRIMARY KEY,
@@ -179,6 +203,7 @@ public final class DatabaseInitializer {
                 )
                 """);
 
+            // Seed initial records when absent.
             seedAdmin(c);
             seedCourse(c, "GEN101", "General Education", 3,
                     "General education elective");
@@ -187,34 +212,78 @@ public final class DatabaseInitializer {
         }
     }
 
-    private static void create(Statement s, String sql) throws SQLException {
+    private static void create(Statement s, String sql)
+            throws SQLException {
         try {
             s.executeUpdate(sql);
         } catch (SQLException e) {
-            // Derby SQLState X0Y32: table or view already exists.
+            // Derby: table already exists.
             if (!"X0Y32".equals(e.getSQLState())) {
                 throw e;
             }
         }
     }
 
-    private static void ensureColumn(
-            Connection c, String table, String column, String sql)
-            throws SQLException {
+    /**
+     * Adds a column only when it is missing from the current schema.
+     */
+    
+private static void ensureColumn(
+        Connection c,
+        String table,
+        String column,
+        String sql) throws SQLException {
 
-        DatabaseMetaData md = c.getMetaData();
+    DatabaseMetaData md = c.getMetaData();
 
-        try (ResultSet rs = md.getColumns(
-                null, null, table.toUpperCase(), column.toUpperCase())) {
-            if (rs.next()) {
-                return;
+    String tableName = table.toUpperCase(java.util.Locale.ROOT);
+    String columnName = column.toUpperCase(java.util.Locale.ROOT);
+
+    // First check the connection's current schema.
+    String schema = c.getSchema();
+
+    if (columnExists(md, c, schema, tableName, columnName)) {
+        return;
+    }
+
+    // Derby metadata may return a null or unexpected schema.
+    if (columnExists(md, c, null, tableName, columnName)) {
+        return;
+    }
+
+    try (Statement statement = c.createStatement()) {
+        statement.executeUpdate(sql);
+    } catch (SQLException ex) {
+        // If the column was created concurrently, accept that result.
+        if (columnExists(md, c, schema, tableName, columnName)
+                || columnExists(md, c, null, tableName, columnName)) {
+            return;
+        }
+
+        throw ex;
+    }
+}
+
+private static boolean columnExists(
+        DatabaseMetaData md,
+        Connection c,
+        String schema,
+        String table,
+        String column) throws SQLException {
+
+    try (ResultSet rs = md.getColumns(
+            c.getCatalog(), schema, table, column)) {
+
+        while (rs.next()) {
+            if (column.equalsIgnoreCase(rs.getString("COLUMN_NAME"))) {
+                return true;
             }
         }
-
-        try (Statement s = c.createStatement()) {
-            s.executeUpdate(sql);
-        }
     }
+
+    return false;
+}
+
 
     private static void seedAdmin(Connection c) throws Exception {
         try (PreparedStatement p = c.prepareStatement(
@@ -229,7 +298,7 @@ public final class DatabaseInitializer {
             p.executeUpdate();
 
         } catch (SQLException e) {
-            // Duplicate username only; other errors must not be hidden.
+            // Ignore duplicate username only.
             if (!"23505".equals(e.getSQLState())) {
                 throw e;
             }
@@ -237,8 +306,11 @@ public final class DatabaseInitializer {
     }
 
     private static void seedCourse(
-            Connection c, String code, String name, int units, String desc)
-            throws SQLException {
+            Connection c,
+            String code,
+            String name,
+            int units,
+            String description) throws SQLException {
 
         try (PreparedStatement p = c.prepareStatement(
                 "INSERT INTO COURSES " +
@@ -248,7 +320,7 @@ public final class DatabaseInitializer {
             p.setString(1, code);
             p.setString(2, name);
             p.setInt(3, units);
-            p.setString(4, desc);
+            p.setString(4, description);
             p.executeUpdate();
 
         } catch (SQLException e) {
@@ -263,9 +335,11 @@ public final class DatabaseInitializer {
                 .digest(text.getBytes(StandardCharsets.UTF_8));
 
         StringBuilder out = new StringBuilder();
+
         for (byte b : bytes) {
             out.append(String.format("%02x", b));
         }
+
         return out.toString();
     }
 }

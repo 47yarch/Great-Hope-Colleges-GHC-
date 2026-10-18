@@ -86,6 +86,7 @@ public class LoginFrame extends JFrame {
 
         root.add(head, BorderLayout.NORTH);
 
+          
         // Login form.
         JPanel form = new JPanel(new GridBagLayout());
         form.setBackground(Theme.BEIGE);
@@ -95,50 +96,73 @@ public class LoginFrame extends JFrame {
         g.insets = new Insets(9, 8, 9, 8);
         g.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel usernameLabel = new JLabel("Username");
+        // Username / Student Number label.
+        JLabel usernameLabel = new JLabel("Username / Student No.");
         usernameLabel.setFont(Theme.LABEL_FONT);
 
         g.gridx = 0;
         g.gridy = 0;
         g.gridwidth = 1;
         g.weightx = 0;
+        g.insets = new Insets(9, 8, 2, 8);
         form.add(usernameLabel, g);
 
+        // Username field.
         user.setFont(Theme.BODY_FONT);
-        user.setToolTipText("Enter your username");
+        user.setToolTipText("For students, enter your student number");
 
         g.gridx = 1;
+        g.gridy = 0;
         g.weightx = 1;
+        g.insets = new Insets(9, 8, 2, 8);
         form.add(user, g);
 
+        // Student helper text.
+        JLabel studentHint = new JLabel(
+                "For students, enter your student number."
+        );
+        studentHint.setForeground(Theme.MUTED);
+        studentHint.setFont(new Font("SansSerif", Font.ITALIC, 10));
+
+        g.gridx = 1;
+        g.gridy = 1;
+        g.insets = new Insets(0, 8, 9, 8);
+        form.add(studentHint, g);
+
+        // Password label.
         JLabel passwordLabel = new JLabel("Password");
         passwordLabel.setFont(Theme.LABEL_FONT);
 
         g.gridx = 0;
-        g.gridy = 1;
+        g.gridy = 2;
         g.weightx = 0;
+        g.insets = new Insets(9, 8, 9, 8);
         form.add(passwordLabel, g);
 
+        // Password field.
         pass.setFont(Theme.BODY_FONT);
         pass.setToolTipText("Enter your password");
 
         g.gridx = 1;
+        g.gridy = 2;
         g.weightx = 1;
         form.add(pass, g);
 
+        // Sign In button.
         loginButton.setFont(Theme.BUTTON_FONT);
         loginButton.setPreferredSize(new Dimension(150, 40));
         loginButton.setBackground(Theme.GREEN);
         loginButton.setForeground(Color.WHITE);
 
         g.gridx = 0;
-        g.gridy = 2;
+        g.gridy = 3;
         g.gridwidth = 2;
         g.weightx = 1;
         g.insets = new Insets(18, 8, 8, 8);
         form.add(loginButton, g);
 
         root.add(form, BorderLayout.CENTER);
+
 
         // Login hint.
         JLabel hint = new JLabel(
@@ -185,14 +209,17 @@ public class LoginFrame extends JFrame {
             new DashboardFrame().setVisible(true);
 
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Login failed: " + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
-        } finally {
-            loginButton.setEnabled(true);
-        }
+    e.printStackTrace();
+
+    JOptionPane.showMessageDialog(
+            this,
+            "Login failed: " + e.getMessage()
+                    + "\nCheck the Run console for the exact source line.",
+            "Error",
+            JOptionPane.ERROR_MESSAGE
+    );
+} finally {
+    loginButton.setEnabled(true);
+}
     }
 }

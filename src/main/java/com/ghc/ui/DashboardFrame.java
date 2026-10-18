@@ -55,7 +55,7 @@ public class DashboardFrame extends JFrame {
         footer.setBorder(BorderFactory.createEmptyBorder(7, 12, 7, 12));
         add(footer, BorderLayout.SOUTH);
 
-        showPage("HOME");
+        showPage(user.isStudent() ? "STUDENT_PORTAL" : "HOME");
     }
 
     private JComponent buildHeader() {
@@ -101,13 +101,19 @@ public class DashboardFrame extends JFrame {
         return header;
     }
 
-    private JComponent buildSidebar() {
-        JPanel side = new JPanel();
-        side.setLayout(new BoxLayout(side, BoxLayout.Y_AXIS));
-        side.setBackground(Theme.DARK_GREEN);
-        side.setPreferredSize(new Dimension(235, 10));
-        side.setBorder(BorderFactory.createEmptyBorder(12, 10, 12, 10));
+    
+private JComponent buildSidebar() {
+    JPanel side = new JPanel();
+    side.setLayout(new BoxLayout(side, BoxLayout.Y_AXIS));
+    side.setBackground(Theme.DARK_GREEN);
+    side.setPreferredSize(new Dimension(235, 10));
+    side.setBorder(BorderFactory.createEmptyBorder(12, 10, 12, 10));
 
+    if (user.isStudent()) {
+        addSection(side, "STUDENT WORKSPACE", new String[][]{
+                {"STUDENT_PORTAL", "My Portal"}
+        });
+    } else {
         addSection(side, "WORKSPACE", new String[][]{
                 {"HOME", "Home"}
         });
@@ -117,52 +123,65 @@ public class DashboardFrame extends JFrame {
                     {"ACADEMIC_SETUP", "Departments & Programs"},
                     {"COURSES", "Courses / Subjects"}
             });
+
             addSection(side, "PEOPLE", new String[][]{
                     {"PEOPLE", "User Accounts"},
                     {"STUDENTS", "Student Directory"}
             });
+
             addSection(side, "CLASSES & ENROLLMENT", new String[][]{
                     {"CLASSES", "Class Sections"},
-                    {"ENROLLMENTS", "Enrollment"}
+                    {"ENROLLMENTS", "Enrollment"},
+                    {"ENROLLMENT_REQUESTS", "Enrollment Requests"}
             });
+
             addSection(side, "GRADES & REPORTS", new String[][]{
                     {"GRADES", "Gradebook & Reports"},
                     {"RECORDS", "Academic Records"}
             });
+
             addSection(side, "SYSTEM", new String[][]{
                     {"SETTINGS", "Appearance & Settings"}
             });
+
         } else if (user.isRegistrar()) {
             addSection(side, "PEOPLE", new String[][]{
                     {"STUDENTS", "Student Directory"}
             });
+
             addSection(side, "CLASSES & ENROLLMENT", new String[][]{
                     {"CLASSES", "Class Sections / Assignment"},
                     {"ENROLLMENTS", "Enrollment"},
+                    {"ENROLLMENT_REQUESTS", "Enrollment Requests"},
                     {"RECORDS", "Academic Records"}
             });
+
             addSection(side, "SYSTEM", new String[][]{
                     {"SETTINGS", "Appearance"}
             });
+
         } else {
             addSection(side, "TEACHING", new String[][]{
                     {"CLASSES", "My Assigned Classes"},
                     {"GRADES", "Gradebook & Reports"}
             });
+
             addSection(side, "SYSTEM", new String[][]{
                     {"SETTINGS", "Appearance"}
             });
         }
-
-        side.add(Box.createVerticalGlue());
-
-        JLabel version = new JLabel("GHC • LOCAL DATABASE");
-        version.setForeground(new Color(235, 230, 205));
-        version.setBorder(BorderFactory.createEmptyBorder(8, 5, 4, 5));
-        side.add(version);
-
-        return side;
     }
+
+    side.add(Box.createVerticalGlue());
+
+    JLabel version = new JLabel("GHC • LOCAL DATABASE");
+    version.setForeground(new Color(235, 230, 205));
+    version.setBorder(BorderFactory.createEmptyBorder(8, 5, 4, 5));
+    side.add(version);
+
+    return side;
+}
+
 
     private void addSection(JPanel side, String title, String[][] entries) {
         JLabel heading = new JLabel(title);
@@ -230,6 +249,10 @@ for (Map.Entry<String, JButton> e : navButtons.entrySet()) {
             case "ENROLLMENTS" ->
                     content.add(new RecordPanel(RecordPanel.Type.ENROLLMENT),
                             BorderLayout.CENTER);
+            case "ENROLLMENT_REQUESTS" ->
+                    content.add(new EnrollmentRequestsPanel(), BorderLayout.CENTER);
+            case "STUDENT_PORTAL" ->
+                   content.add(new StudentPortalPanel(), BorderLayout.CENTER);
             case "RECORDS" ->
                     content.add(new RecordPanel(RecordPanel.Type.RECORDS),
                             BorderLayout.CENTER);
@@ -338,10 +361,42 @@ for (Map.Entry<String, JButton> e : navButtons.entrySet()) {
     }
 
     private static String roleLabel(Role role) {
-        return switch (role) {
-            case ADMIN -> "Administrator";
-            case REGISTRAR -> "Registrar";
-            case INSTRUCTOR -> "Instructor";
+    return switch (role) {
+        case ADMIN -> "Administrator";
+        case REGISTRAR -> "Registrar";
+        case INSTRUCTOR -> "Instructor";
+        case STUDENT -> "Student";
+    };
+}
+
+
+private boolean canAccessPage(String page) {
+    if (user.isStudent()) {
+        return "STUDENT_PORTAL".equals(page);
+    }
+
+    if (user.isAdmin()) {
+        return switch (page) {
+            case "HOME", "ACADEMIC_SETUP", "COURSES", "PEOPLE",
+                 "STUDENTS", "CLASSES", "ENROLLMENTS",
+                 "ENROLLMENT_REQUESTS", "GRADES", "RECORDS",
+                 "SETTINGS" -> true;
+            default -> false;
         };
     }
+
+    if (user.isRegistrar()) {
+        return switch (page) {
+            case "HOME", "STUDENTS", "CLASSES", "ENROLLMENTS",
+                 "ENROLLMENT_REQUESTS", "RECORDS", "SETTINGS" -> true;
+            default -> false;
+        };
+    }
+
+    return switch (page) {
+        case "HOME", "CLASSES", "GRADES", "SETTINGS" -> true;
+        default -> false;
+    };
+}
+
 }
